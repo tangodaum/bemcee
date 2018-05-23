@@ -5,12 +5,15 @@ from operator import is_not
 from functools import partial
 import os
 import pyfits
-from utils import bin_data
+from utils import bin_data, find_nearest
 from scipy.interpolate import griddata
+import atpy
 
 
 # ==============================================================================
-def read_stars(folder_tables, stars_table):
+def read_stars(stars_table):
+
+    folder_tables = 'tables/'
 
     typ = (0, 1, 2, 3, 4, 5, 6, 7, 8)
     file_data = folder_tables + stars_table
@@ -40,7 +43,87 @@ def read_stars(folder_tables, stars_table):
 
 
 # ==============================================================================
-def read_befavor_xdr(folder_models):
+def read_befavor_xdr_complete():
+
+    folder_models = 'models/'
+
+    dims = ['M', 'ob', 'Hfrac', 'sig0', 'Rd', 'mr', 'cosi']
+    dims = dict(zip(dims, range(len(dims))))
+    isig = dims["sig0"]
+
+    ctrlarr = [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN, np.NaN, np.NaN]
+
+    tmp = 0
+    cont = 0
+    while tmp < len(ctrlarr):
+        if math.isnan(ctrlarr[tmp]) is True:
+            cont = cont + 1
+            tmp = tmp + 1
+        else:
+            tmp = tmp + 1
+
+    # Read the grid models, with the interval of parameters.
+    xdrPL = folder_models + 'aara_sed.xdr'  # 'PL.xdr'
+    # xdrPL = folder_models + 'aara_final.xdr'  # 'PL.xdr'
+    # xdrPL = folder_models + 'aara_acs.xdr'  # 'PL.xdr'
+    # xdrPL = folder_models + 'disk_flx.xdr'  # 'PL.xdr'
+
+    listpar, lbdarr, minfo, models = bat.readBAsed(xdrPL, quiet=False)
+
+    # F(lbd)] = 10^-4 erg/s/cm2/Ang
+
+    for i in range(np.shape(minfo)[0]):
+        for j in range(np.shape(minfo)[1]):
+            if minfo[i][j] < 0:
+                minfo[i][j] = 0.
+
+    for i in range(np.shape(models)[0]):
+        for j in range(np.shape(models)[1]):
+            if models[i][j] < 0. or models[i][j] == 0.:
+                models[i][j] = (models[i][j + 1] + models[i][j - 1]) / 2.
+
+    # n0 to logn0
+    listpar[4] = np.log10(listpar[4])
+    listpar[4].sort()
+    minfo[:, 4] = np.log10(minfo[:, 4])
+
+    if False:
+        mask = []
+        tmp, idx = find_nearest(lbdarr, 2e2)
+        for i in range(len(models)):
+            if models[i][idx] > 1e-10:
+                mask.append(i)
+
+        for i in range(len(models)):
+            if min(models[i]) < 1e-27:
+                mask.append(i)
+
+        new_models = np.delete(models, mask, axis=0)
+        new_minfo = np.delete(minfo, mask, axis=0)
+
+        models = np.copy(new_models)
+        minfo = np.copy(new_minfo)
+
+    # delete columns of fixed par
+    cols2keep = [0, 1, 3, 4, 5, 7, 8]
+    cols2delete = [2, 6]
+    listpar = [listpar[i] for i in cols2keep]
+    minfo = np.delete(minfo, cols2delete, axis=1)
+    listpar[3].sort()
+
+    # for i in range(len(models)):
+    #     plt.plot(lbdarr, models[i], alpha=0.1)
+    # plt.yscale('log')
+    # plt.xscale('log')
+    # plt.show()
+
+    return ctrlarr, minfo, models, lbdarr, listpar, dims, isig
+
+
+# ==============================================================================
+def read_befavor_xdr():
+
+    folder_models = 'models/'
 
     dims = ['M', 'ob', 'Hfrac', 'sig0', 'Rd', 'mr', 'cosi']
     dims = dict(zip(dims, range(len(dims))))
@@ -86,7 +169,7 @@ def read_befavor_xdr(folder_models):
 # ==============================================================================
 def read_star_info(stars, list_plx, list_sig_plx, list_vsini_obs,
                    list_sig_vsin_obs, list_pre_ebmv, lbd_range,
-                   listpar, Nsigma_dis, include_rv):
+                   listpar, Nsigma_dis, include_rv, phot):
 
         print(75 * '=')
 
@@ -131,12 +214,23 @@ def read_star_info(stars, list_plx, list_sig_plx, list_vsini_obs,
 
         addlistpar = list(filter(partial(is_not, None), addlistpar))
 
-        ranges = np.array([[listpar[0][0], listpar[0][-1]],
-                           [listpar[1][0], listpar[1][-1]],
-                           [listpar[2][0], listpar[2][-1]],
-                           [listpar[3][0], listpar[3][-1]],
-                           [dist_min, dist_max],
-                           [ebmv[0], ebmv[-1]]])
+        if phot is True:
+            ranges = np.array([[listpar[0][0], listpar[0][-1]],
+                               [listpar[1][0], listpar[1][-1]],
+                               [listpar[2][0], listpar[2][-1]],
+                               [listpar[3][0], listpar[3][-1]],
+                               [dist_min, dist_max],
+                               [ebmv[0], ebmv[-1]]])
+        else:
+            ranges = np.array([[listpar[0][0], listpar[0][-1]],
+                               [listpar[1][0], listpar[1][-1]],
+                               [listpar[2][0], listpar[2][-1]],
+                               [listpar[3][0], listpar[3][-1]],
+                               [listpar[4][0], listpar[4][-1]],
+                               [listpar[5][0], listpar[5][-1]],
+                               [listpar[6][0], listpar[6][-1]],
+                               [dist_min, dist_max],
+                               [ebmv[0], ebmv[-1]]])
         if include_rv is True:
             ranges = np.array([[listpar[0][0], listpar[0][-1]],
                                [listpar[1][0], listpar[1][-1]],
@@ -152,8 +246,8 @@ def read_star_info(stars, list_plx, list_sig_plx, list_vsini_obs,
 
 
 # ==============================================================================
-def read_iue(models, lbdarr, folder_data,
-             folder_fig, star, cut_iue_regions):
+def read_iue(models, lbdarr, wave0, flux0, sigma0, folder_data,
+             folder_fig, star, cut_iue_regions, phot):
 
     table = folder_data + str(star) + '/' + 'list.txt'
 
@@ -165,9 +259,7 @@ def read_iue(models, lbdarr, folder_data,
         iue_list = np.genfromtxt(table, comments='#', dtype='str')
         file_name = np.copy(iue_list)
 
-    fluxes = []
-    waves = []
-    errors = []
+    fluxes, waves, errors = [], [], []
 
     for k in range(len(file_name)):
         file_iue = str(folder_data) + str(star) + '/' + str(file_name[k])
@@ -228,6 +320,16 @@ def read_iue(models, lbdarr, folder_data,
     flux = ybin[ordem]
     sigma = dybin[ordem]
 
+    if phot is False:
+        wave = np.hstack([wave0, wave])
+        flux = np.hstack([flux0, flux])
+        sigma = np.hstack([sigma0, sigma])
+
+        ordem = wave.argsort()
+        wave = wave[ordem]
+        flux = flux[ordem]
+        sigma = sigma[ordem]
+
 # ------------------------------------------------------------------------------
     # select lbdarr to coincide with lbd
     models_new = np.zeros([len(models), len(wave)])
@@ -241,4 +343,59 @@ def read_iue(models, lbdarr, folder_data,
     logF_grid = np.log10(models_new)
 
     return logF, dlogF, logF_grid, wave
+
+
+# ==============================================================================
+def read_votable(folder_data, star):
+
+    table = folder_data + str(star) + '/' + 'list.txt'
+
+    # os.chdir(folder_data + str(star) + '/')
+    if os.path.isfile(table) is False or os.path.isfile(table) is True:
+        os.system('ls ' + folder_data + str(star) +
+                  '/*.xml | xargs -n1 basename >' +
+                  folder_data + str(star) + '/' + 'list.txt')
+        vo_list = np.genfromtxt(table, comments='#', dtype='str')
+        table_name = np.copy(vo_list)
+
+    vo_file = folder_data + str(star) + '/' + str(table_name)
+    try:
+        t1 = atpy.Table(vo_file)
+        wave = t1['Wavelength'][:]  # Angstrom
+        flux = t1['Flux'][:]  # erg/cm2/s/A
+        sigma = t1['Error'][:]  # erg/cm2/s/A
+    except:
+        t1 = atpy.Table(vo_file, tid=1)
+        wave = t1['SpectralAxis0'][:]  # Angstrom
+        flux = t1['Flux0'][:]  # erg/cm2/s/A
+        sigma = [0.] * len(flux)  # erg/cm2/s/A
+
+    new_wave, new_flux, new_sigma = zip(*sorted(zip(wave, flux, sigma)))
+
+    new_wave = list(new_wave)
+    new_flux = list(new_flux)
+    new_sigma = list(new_sigma)
+
+    # Filtering null sigmas
+    for h in range(len(new_sigma)):
+        if new_sigma[h] == 0.:
+            new_sigma[h] = 0.002 * new_flux[h]
+
+    wave = np.copy(new_wave) * 1e-4
+    flux = np.copy(new_flux) * 1e4
+    sigma = np.copy(new_sigma) * 1e4
+
+    return wave, flux, sigma
+
+
+# ==============================================================================
+def read_models(phot):
+    if phot is True:
+        ctrlarr, minfo, models, lbdarr, listpar,\
+            dims, isig = read_befavor_xdr()
+    else:
+        ctrlarr, minfo, models, lbdarr, listpar,\
+            dims, isig = read_befavor_xdr_complete()
+
+    return ctrlarr, minfo, models, lbdarr, listpar, dims, isig
 

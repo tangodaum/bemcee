@@ -139,7 +139,7 @@ def plot_fit(par, lbd, logF, dlogF, minfo, listpar, lbdarr, logF_grid,
 # ==============================================================================
 def plot_fit_last(par, lbd, logF, dlogF, minfo, listpar, lbdarr, logF_grid,
                   isig, dims, Nwalk, Nmcmc, ranges, include_rv,
-                  npy, log_scale):
+                  npy, log_scale, phot):
     '''
     Plots best model fit over data
 
@@ -154,7 +154,10 @@ def plot_fit_last(par, lbd, logF, dlogF, minfo, listpar, lbdarr, logF_grid,
         lim = 3
         lim2 = 2
     else:
-        Mstar, oblat, Hfrac, cosi, dist, ebv = par
+        if phot is True:
+            Mstar, oblat, Hfrac, cosi, dist, ebv = par
+        else:
+            Mstar, oblat, Hfrac, Sig0, Rd, n, cosi, dist, ebv = par
         lim = 2
         lim2 = 1
         rv = 3.1
@@ -172,6 +175,7 @@ def plot_fit_last(par, lbd, logF, dlogF, minfo, listpar, lbdarr, logF_grid,
     chain = np.load(npy)
     par_list = chain[:, -1, :]
     # interpolate models
+    # print(minfo, logF_grid, par[:-lim], listpar, dims)
     logF_mod = griddataBA(minfo, logF_grid, par[:-lim], listpar, dims)
     logF_list = np.zeros([len(par_list), len(logF_mod)])
     chi2 = np.zeros(len(logF_list))
@@ -185,15 +189,11 @@ def plot_fit_last(par, lbd, logF, dlogF, minfo, listpar, lbdarr, logF_grid,
         chi2[j] = np.sum((logF[keep] -
                           logF_list[j][keep])**2 / (dlogF[keep])**2)
 
-    # chib = chi2[np.argsort(chi2)[-30:]] / max(chi2)
-
     flux = 10.**logF
     dflux = dlogF * flux
     flux_mod = 10.**logF_mod
 
-    flux_mod = pyasl.unred(lbd * 1e4, flux_mod,
-                           ebv=-1 * ebv, R_V=rv)
-    # alphas = (1. - chi2 / max(chi2)) / 50.
+    flux_mod = pyasl.unred(lbd * 1e4, flux_mod, ebv=-1 * ebv, R_V=rv)
 
     # Plot definitions
     bottom, left = 0.80, 0.48  # 0.75, 0.48
@@ -214,7 +214,6 @@ def plot_fit_last(par, lbd, logF, dlogF, minfo, listpar, lbdarr, logF_grid,
         plt.plot(lbd, lbd * flux_mod, color='red', ls='-', lw=3.5, alpha=0.4,
                  label='$\mathrm{Best\, fit}$')
 
-        # plt.xlabel('$\lambda\,\mathrm{[\mu m]}$', fontsize=20)
         plt.ylabel(r'$\lambda F_{\lambda}\,\mathrm{[erg\, s^{-1}\, cm^{-2}]}$',
                    fontsize=20)
         plt.yscale('log')
@@ -237,6 +236,8 @@ def plot_fit_last(par, lbd, logF, dlogF, minfo, listpar, lbdarr, logF_grid,
                    fontsize=20)
         plt.tick_params(labelbottom='off')
     plt.xlim(min(lbd), max(lbd))
+    if phot is False:
+        plt.xscale('log')
     plt.tick_params(direction='in', length=6, width=2, colors='gray',
                     which='both')
     plt.legend(loc='upper right')
@@ -247,7 +248,7 @@ def plot_fit_last(par, lbd, logF, dlogF, minfo, listpar, lbdarr, logF_grid,
 # ==============================================================================
 def plot_residuals(par, lbd, logF, dlogF, minfo, listpar, lbdarr, logF_grid,
                    isig, dims, Nwalk, Nmcmc, ranges, include_rv,
-                   npy, log_scale):
+                   npy, log_scale, phot):
     '''
     Plots best model fit over data
 
@@ -262,7 +263,10 @@ def plot_residuals(par, lbd, logF, dlogF, minfo, listpar, lbdarr, logF_grid,
         lim = 3
         lim2 = 2
     else:
-        Mstar, oblat, Hfrac, cosi, dist, ebv = par
+        if phot is True:
+            Mstar, oblat, Hfrac, cosi, dist, ebv = par
+        else:
+            Mstar, oblat, Hfrac, Sig0, Rd, n, cosi, dist, ebv = par
         lim = 2
         lim2 = 1
         rv = 3.1
@@ -324,6 +328,8 @@ def plot_residuals(par, lbd, logF, dlogF, minfo, listpar, lbdarr, logF_grid,
                linestyles='--', color='black')
 
     plt.xlim(min(lbd), max(lbd))
+    if phot is False:
+        plt.xscale('log')
     plt.tick_params(direction='in', length=6, width=2, colors='gray',
                     which='both')
     plt.legend(loc='upper right')

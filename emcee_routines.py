@@ -15,6 +15,8 @@ from utils import geneva_interp_fast, find_nearest, griddataBA
 from be_theory import hfrac2tms
 from plot_routines import plot_fit, print_output, par_errors,\
     plot_fit_last, plot_residuals
+from reading_routines import read_iue, read_votable, read_stars,\
+    read_befavor_xdr, read_star_info, read_befavor_xdr_complete
 from convergence_routines import plot_convergence
 
 font = fm.FontProperties(size=30)
@@ -37,9 +39,13 @@ mpl.rc('xtick', labelsize=14)
 mpl.rc('ytick', labelsize=14)
 mpl.rc('font', **font)
 
+folder_data = 'iue/'
+folder_vo = 'data/'
+folder_fig = 'figures/'
+
 
 # ==============================================================================
-def lnlike(params, lbd, logF, dlogF, logF_mod, ranges, include_rv):
+def lnlike(params, lbd, logF, dlogF, logF_mod, ranges, include_rv, phot):
 
     """
     Returns the likelihood probability function.
@@ -52,8 +58,12 @@ def lnlike(params, lbd, logF, dlogF, logF_mod, ranges, include_rv):
     # p5 = distance
     """
 
-    dist = params[4]
-    ebmv = params[5]
+    if phot is True:
+        dist = params[4]
+        ebmv = params[5]
+    else:
+        dist = params[7]
+        ebmv = params[8]
 
     if include_rv is True:
         RV = params[6]
@@ -81,10 +91,15 @@ def lnlike(params, lbd, logF, dlogF, logF_mod, ranges, include_rv):
 
 
 # ==============================================================================
-def lnprior(params, vsin_obs, sig_vsin_obs, dist_pc, sig_dist_pc, ranges):
+def lnprior(params, vsin_obs, sig_vsin_obs, dist_pc,
+            sig_dist_pc, ranges, phot):
 
-    Mstar, oblat, Hfrac, cosi, dist = params[0], params[1], params[2],\
-        params[3], params[4]
+    if phot is True:
+        Mstar, oblat, Hfrac, cosi, dist = params[0], params[1], params[2],\
+            params[3], params[4]
+    else:
+        Mstar, oblat, Hfrac, cosi, dist = params[0], params[1],\
+            params[2], params[6], params[7]
     # Rpole, Lstar, Teff = vkg.geneve_par(Mstar, oblat, Hfrac, folder_tables)
     t = np.max(np.array([hfrac2tms(Hfrac), 0.]))
 
@@ -96,8 +111,7 @@ def lnprior(params, vsin_obs, sig_vsin_obs, dist_pc, sig_dist_pc, ranges):
     vsini = oblat2w(oblat) * wcrit * (Rpole * Rsun * oblat) *\
         np.sin(np.arccos(cosi)) * 1e-5
 
-    chi2_vsi = (vsin_obs - vsini)**2 /\
-        sig_vsin_obs**2.
+    chi2_vsi = (vsin_obs - vsini)**2 / sig_vsin_obs**2.
     chi2_dis = (dist_pc - dist)**2 / sig_dist_pc**2.
 
     chi2_prior = chi2_vsi + chi2_dis
@@ -108,37 +122,70 @@ def lnprior(params, vsin_obs, sig_vsin_obs, dist_pc, sig_dist_pc, ranges):
 # ==============================================================================
 def lnprob(params, lbd, logF, dlogF, minfo, listpar,
            logF_grid, vsin_obs, sig_vsin_obs, dist_pc, sig_dist_pc,
-           isigm, ranges, dims, include_rv):
+           isigm, ranges, dims, include_rv, phot):
 
-    if params[0] >= ranges[0][0] and\
-       params[0] <= ranges[0][1] and\
-       params[1] >= ranges[1][0] and\
-       params[1] <= ranges[1][1] and\
-       params[2] >= ranges[2][0] and\
-       params[2] <= ranges[2][1] and\
-       params[3] >= ranges[3][0] and\
-       params[3] <= ranges[3][1] and\
-       params[4] >= ranges[4][0] and\
-       params[4] <= ranges[4][1] and\
-       params[5] >= ranges[5][0] and\
-       params[5] <= ranges[5][1]:
+    # if params[0] >= ranges[0][0] and\
+    #    params[0] <= ranges[0][1] and\
+    #    params[1] >= ranges[1][0] and\
+    #    params[1] <= ranges[1][1] and\
+    #    params[2] >= ranges[2][0] and\
+    #    params[2] <= ranges[2][1] and\
+    #    params[3] >= ranges[3][0] and\
+    #    params[3] <= ranges[3][1] and\
+    #    params[4] >= ranges[4][0] and\
+    #    params[4] <= ranges[4][1] and\
+    #    params[5] >= ranges[5][0] and\
+    #    params[5] <= ranges[5][1]:
+
+    # if params[0] > ranges[0][0] and\
+    #    params[0] < ranges[0][1] and\
+    #    params[1] > ranges[1][0] and\
+    #    params[1] < ranges[1][1] and\
+    #    params[2] > ranges[2][0] and\
+    #    params[2] < ranges[2][1] and\
+    #    params[3] > ranges[3][0] and\
+    #    params[3] < ranges[3][1] and\
+    #    params[4] > ranges[4][0] and\
+    #    params[4] < ranges[4][1] and\
+    #    params[5] > ranges[5][0] and\
+    #    params[5] < ranges[5][1] and\
+    #    params[6] > ranges[6][0] and\
+    #    params[6] < ranges[6][1] and\
+    #    params[7] > ranges[7][0] and\
+    #    params[7] < ranges[7][1] and\
+    #    params[8] > ranges[8][0] and\
+    #    params[8] < ranges[8][1]:
+    count = 0
+    inside_ranges = True
+    while inside_ranges * (count < len(params)):
+        inside_ranges = (params[count] >= ranges[count, 0]) *\
+            (params[count] <= ranges[count, 1])
+        count += 1
+    if inside_ranges:
 
         if include_rv is True:
             lim = 3
         else:
             lim = 2
-
+        # print(params[:-lim])
+        # print(logF_grid)
         logF_mod = griddataBA(minfo, logF_grid, params[:-lim],
                               listpar, dims)
 
         lp = lnprior(params, vsin_obs, sig_vsin_obs, dist_pc,
-                     sig_dist_pc, ranges)
+                     sig_dist_pc, ranges, phot)
 
-        if not np.isfinite(lp):
+        lk = lnlike(params, lbd, logF, dlogF, logF_mod, ranges,
+                    include_rv, phot)
+
+        lpost = lp + lk
+
+        # print('{0:.2f} , {1:.2f}, {2:.2f}'.format(lp, lk, lpost))
+
+        if not np.isfinite(lpost):
             return -np.inf
         else:
-            return lp + lnlike(params, lbd, logF, dlogF, logF_mod, ranges,
-                               include_rv)
+            return lpost
     else:
         return -np.inf
 
@@ -214,28 +261,40 @@ def emcee_inference(star, Ndim, ranges, lbdarr, wave, logF, dlogF, minfo,
                     listpar, logF_grid, vsin_obs, sig_vsin_obs,
                     dist_pc, sig_dist_pc, isig, dims, include_rv,
                     a_parameter, af_filter, tag, plot_fits, long_process,
-                    log_scale):
+                    log_scale, phot, acrux, pool, Nproc):
 
         if long_process is True:
             Nwalk = 500
             nint_burnin = 200  # 50
             nint_mcmc = 1000  # 300
         else:
-            Nwalk = Ndim * 6
-            nint_mcmc = 20
-            nint_burnin = int(nint_mcmc / 10)
+            Nwalk = 20
+            nint_burnin = 5
+            nint_mcmc = 10
 
         p0 = [np.random.rand(Ndim) * (ranges[:, 1] - ranges[:, 0]) +
               ranges[:, 0] for i in range(Nwalk)]
         start_time = time.time()
 
-        sampler = emcee.EnsembleSampler(Nwalk, Ndim, lnprob,
-                                        args=[wave, logF, dlogF, minfo,
-                                              listpar, logF_grid, vsin_obs,
-                                              sig_vsin_obs, dist_pc,
-                                              sig_dist_pc,
-                                              isig, ranges, dims, include_rv],
-                                        a=a_parameter, threads=1)
+        if acrux is True:
+            sampler = emcee.EnsembleSampler(Nwalk, Ndim, lnprob,
+                                            args=[wave, logF, dlogF, minfo,
+                                                  listpar, logF_grid, vsin_obs,
+                                                  sig_vsin_obs, dist_pc,
+                                                  sig_dist_pc,
+                                                  isig, ranges, dims,
+                                                  include_rv, phot],
+                                            a=a_parameter, threads=Nproc,
+                                            pool=pool)
+        else:
+            sampler = emcee.EnsembleSampler(Nwalk, Ndim, lnprob,
+                                            args=[wave, logF, dlogF, minfo,
+                                                  listpar, logF_grid, vsin_obs,
+                                                  sig_vsin_obs, dist_pc,
+                                                  sig_dist_pc,
+                                                  isig, ranges, dims,
+                                                  include_rv, phot],
+                                            a=a_parameter, threads=1)
 
         sampler_tmp = run_emcee(p0, sampler, nint_burnin, nint_mcmc,
                                 Ndim, file_name=star)
@@ -248,8 +307,18 @@ def emcee_inference(star, Ndim, ranges, lbdarr, wave, logF, dlogF, minfo,
             mass_true, obt_true, xc_true,\
                 cos_true, ebv_true, dist_true, rv_true = params_fit
         else:
-            mass_true, obt_true, xc_true,\
-                cos_true, ebv_true, dist_true = params_fit
+            if phot is True:
+                mass_true, obt_true, xc_true,\
+                    cos_true, ebv_true, dist_true = params_fit
+            else:
+                mass_true, obt_true, xc_true, n0, Rd, n_true,\
+                    cos_true, ebv_true, dist_true = params_fit
+
+        # if phot is False:
+        #     angle_in_rad = np.arccos(params_fit[6])
+        #     params_fit[6] = (np.arccos(params_fit[6])) * (180. / np.pi)
+        #     errors_fit[6] = (errors_fit[6] / (np.sqrt(1. -
+        #                      (np.cos(angle_in_rad)**2.)))) * (180. / np.pi)
 
         chain = sampler.chain
 
@@ -280,18 +349,32 @@ def emcee_inference(star, Ndim, ranges, lbdarr, wave, logF, dlogF, minfo,
         Ndim_1 = np.shape(chain_1)[-1]
         flatchain_1 = chain_1.reshape((-1, Ndim_1))
 
-        mas_1 = flatchain_1[:, 0]
-        obl_1 = flatchain_1[:, 1]
-        age_1 = flatchain_1[:, 2]
-        inc_1 = flatchain_1[:, 3]
-        dis_1 = flatchain_1[:, 4]
-        ebv_1 = flatchain_1[:, 5]
+        if phot is True:
+            mas_1 = flatchain_1[:, 0]
+            obl_1 = flatchain_1[:, 1]
+            age_1 = flatchain_1[:, 2]
+            inc_1 = flatchain_1[:, 3]
+            dis_1 = flatchain_1[:, 4]
+            ebv_1 = flatchain_1[:, 5]
+        else:
+            mas_1 = flatchain_1[:, 0]
+            obl_1 = flatchain_1[:, 1]
+            age_1 = flatchain_1[:, 2]
+            rh0_1 = flatchain_1[:, 3]
+            rdk_1 = flatchain_1[:, 4]
+            nix_1 = flatchain_1[:, 5]
+            inc_1 = flatchain_1[:, 6]
+            dis_1 = flatchain_1[:, 7]
+            ebv_1 = flatchain_1[:, 8]
 
         if include_rv is True:
             rv_1 = flatchain_1[:, 6]
             par_list = np.zeros([len(mas_1), 7])
         else:
-            par_list = np.zeros([len(mas_1), 6])
+            if phot is True:
+                par_list = np.zeros([len(mas_1), 6])
+            else:
+                par_list = np.zeros([len(mas_1), 9])
 
         for i in range(len(mas_1)):
             if include_rv is True:
@@ -299,16 +382,26 @@ def emcee_inference(star, Ndim, ranges, lbdarr, wave, logF, dlogF, minfo,
                                inc_1[i], dis_1[i], ebv_1[i],
                                rv_1[i]]
             else:
-                par_list[i] = [mas_1[i], obl_1[i], age_1[i],
-                               inc_1[i], dis_1[i], ebv_1[i]]
+                if phot is True:
+                    par_list[i] = [mas_1[i], obl_1[i], age_1[i],
+                                   inc_1[i], dis_1[i], ebv_1[i]]
+                else:
+                    par_list[i] = [mas_1[i], obl_1[i], age_1[i],
+                                   rh0_1[i], rdk_1[i], nix_1[i],
+                                   inc_1[i], dis_1[i], ebv_1[i]]
 
         # plot corner
         if include_rv is True:
             samples = np.vstack((mas_1, obl_1, age_1,
                                 inc_1, dis_1, ebv_1, rv_1)).T
         else:
-            samples = np.vstack((mas_1, obl_1, age_1,
-                                inc_1, dis_1, ebv_1)).T
+            if phot is True:
+                samples = np.vstack((mas_1, obl_1, age_1,
+                                    inc_1, dis_1, ebv_1)).T
+            else:
+                samples = np.vstack((mas_1, obl_1, age_1,
+                                     rh0_1, rdk_1, nix_1,
+                                    inc_1, dis_1, ebv_1)).T
 
         k, arr_t_tc, arr_Xc = t_tms_from_Xc(mass_true,
                                             savefig=False,
@@ -333,7 +426,11 @@ def emcee_inference(star, Ndim, ranges, lbdarr, wave, logF, dlogF, minfo,
             samples[i][2] = ttms_ip[find_nearest(Xc_ip, samples[i][2])[1]]
 
             # Converting angles to degrees
-            samples[i][3] = (np.arccos(samples[i][3])) * (180. / np.pi)
+            if phot is True:
+                samples[i][3] = (np.arccos(samples[i][3])) * (180. / np.pi)
+            else:
+                samples[i][5] = samples[i][5] + 1.5
+                samples[i][6] = (np.arccos(samples[i][6])) * (180. / np.pi)
 
         # plot corner
         quantiles = [0.16, 0.5, 0.84]
@@ -342,14 +439,29 @@ def emcee_inference(star, Ndim, ranges, lbdarr, wave, logF, dlogF, minfo,
                       r'$i[\mathrm{^o}]$', r'$d\,[pc]$', r'E(B-V)',
                       r'$R_\mathrm{V}$']
         else:
-            labels = [r'$M\,[M_\odot]$', r'$W$', r"$t/t_\mathrm{ms}$",
-                      r'$i[\mathrm{^o}]$', r'$d\,[pc]$', r'E(B-V)']
+            if phot is True:
+                labels = [r'$M\,[M_\odot]$', r'$W$', r"$t/t_\mathrm{ms}$",
+                          r'$i[\mathrm{^o}]$', r'$d\,[pc]$', r'E(B-V)']
+            else:
+                labels = [r'$M\,[M_\odot]$', r'$W$', r"$t/t_\mathrm{ms}$",
+                          r'$\log \, n_0 \, [cm^{-3}]$',
+                          r'$R_\mathrm{D}\, [R_\star]$',
+                          r'$n$', r'$i[\mathrm{^o}]$', r'$d\,[pc]$', r'E(B-V)']
 
-        ranges[1] = oblat2w(ranges[1])
-        ranges[2][0] = ttms_ip[find_nearest(Xc_ip, ranges[2][1])[1]]
-        ranges[2][1] = ttms_ip[find_nearest(Xc_ip, ranges[2][0])[1]]
-        ranges[3] = (np.arccos(ranges[3])) * (180. / np.pi)
-        ranges[3] = np.array([ranges[3][1], ranges[3][0]])
+        if phot is True:
+            ranges[1] = oblat2w(ranges[1])
+            ranges[2][0] = ttms_ip[find_nearest(Xc_ip, ranges[2][1])[1]]
+            ranges[2][1] = ttms_ip[find_nearest(Xc_ip, ranges[2][0])[1]]
+            ranges[3] = (np.arccos(ranges[3])) * (180. / np.pi)
+            ranges[3] = np.array([ranges[3][1], ranges[3][0]])
+        else:
+            ranges[1] = oblat2w(ranges[1])
+            ranges[2][0] = ttms_ip[find_nearest(Xc_ip, ranges[2][1])[1]]
+            ranges[2][1] = ttms_ip[find_nearest(Xc_ip, ranges[2][0])[1]]
+            ranges[3] = np.array([ranges[3][1], ranges[3][0]])
+            ranges[5] = ranges[5] + 1.5
+            ranges[6] = (np.arccos(ranges[6])) * (180. / np.pi)
+            ranges[6] = np.array([ranges[6][1], ranges[6][0]])
 
         corner(samples, labels=labels, range=ranges, quantiles=quantiles,
                plot_contours=True, smooth=2., smooth1d=False,
@@ -367,7 +479,7 @@ def emcee_inference(star, Ndim, ranges, lbdarr, wave, logF, dlogF, minfo,
             plot_fit_last(params_fit, wave, logF, dlogF, minfo,
                           listpar, lbdarr, logF_grid, isig, dims,
                           Nwalk, nint_mcmc, ranges, include_rv,
-                          file_npy, log_scale)
+                          file_npy, log_scale, phot)
 
         current_folder = 'figures/' + str(star) + '/'
         fig_name = 'Walkers_' + np.str(Nwalk) + '_Nmcmc_' +\
@@ -380,9 +492,72 @@ def emcee_inference(star, Ndim, ranges, lbdarr, wave, logF, dlogF, minfo,
         plot_residuals(params_fit, wave, logF, dlogF, minfo,
                        listpar, lbdarr, logF_grid, isig, dims,
                        Nwalk, nint_mcmc, ranges, include_rv,
-                       file_npy, log_scale)
+                       file_npy, log_scale, phot)
         plt.savefig(current_folder + fig_name + '_residuals' + '.png', dpi=100)
 
-        plot_convergence(file_npy, file_npy[:-4] + '_convergence')
+        plot_convergence(file_npy, file_npy[:-4] + '_convergence', phot)
 
         return
+
+
+# ==============================================================================
+def run(input_params):
+    stars, list_plx, list_sig_plx, list_vsini_obs,\
+        list_sig_vsin_obs, list_pre_ebmv, lbd_range,\
+        listpar, Nsigma_dis, include_rv, phot, ctrlarr,\
+        minfo, models, lbdarr, listpar, dims, isig,\
+        a_parameter, af_filter, tag, plot_fits,\
+        plot_in_log_scale, long_process,\
+        extension, acrux, pool, Nproc = input_params
+
+    if phot is True:
+        cut_iue_regions = False
+    else:
+        cut_iue_regions = True
+
+    if np.size(stars) == 1:
+        ranges, dist_pc, sig_dist_pc, vsin_obs, sig_vsin_obs,\
+            Ndim, band =\
+            read_star_info(stars, list_plx, list_sig_plx,
+                           list_vsini_obs, list_sig_vsin_obs,
+                           list_pre_ebmv, lbd_range, listpar,
+                           Nsigma_dis, include_rv, phot)
+
+        # Reading IUE data
+        wave0, flux0, sigma0 = read_votable(folder_vo, stars)
+
+        logF, dlogF, logF_grid, wave =\
+            read_iue(models, lbdarr, wave0, flux0, sigma0,
+                     folder_data, folder_fig, stars,
+                     cut_iue_regions, phot)
+
+        emcee_inference(stars, Ndim, ranges, lbdarr, wave, logF, dlogF,
+                        minfo, listpar, logF_grid, vsin_obs, sig_vsin_obs,
+                        dist_pc, sig_dist_pc, isig, dims, include_rv,
+                        a_parameter, af_filter, tag, plot_fits, long_process,
+                        plot_in_log_scale, phot, acrux, pool, Nproc)
+    else:
+        for i in range(np.size(stars)):
+            star = stars[i]
+            star = star.astype('str')
+            ranges, dist_pc, sig_dist_pc, vsin_obs, sig_vsin_obs,\
+                Ndim, band =\
+                read_star_info(star, list_plx[i], list_sig_plx[i],
+                               list_vsini_obs[i], list_sig_vsin_obs[i],
+                               list_pre_ebmv[i], lbd_range[i], listpar,
+                               Nsigma_dis, include_rv, phot)
+
+            wave0, flux0, sigma0 = read_votable(folder_vo, star)
+
+            logF, dlogF, logF_grid, wave =\
+                read_iue(models, lbdarr, wave0, flux0, sigma0, folder_data,
+                         folder_fig, star, cut_iue_regions, phot)
+
+            emcee_inference(star, Ndim, ranges, lbdarr, wave, logF,
+                            dlogF, minfo, listpar, logF_grid, vsin_obs,
+                            sig_vsin_obs, dist_pc, sig_dist_pc, isig,
+                            dims, include_rv, a_parameter,
+                            af_filter, tag, plot_fits, long_process,
+                            plot_in_log_scale, phot, acrux, pool, Nproc)
+    return
+

@@ -8,34 +8,54 @@ font_color = "black"
 tick_color = "black"
 
 
-def plot_convergence(npy, file_name):
+# ==============================================================================
+def plot_convergence(npy, file_name, phot):
 
     converged_idx = 0
-    linspace = [np.linspace(3.4, 14.6, 8),
-                np.linspace(1.0, 1.45, 6),
-                np.linspace(0.0, 1.00, 5),
-                np.linspace(0.0, 1.0, 5),
-                np.linspace(70, 130, 5),
-                np.linspace(0, 0.1, 5)]
+    if phot is True:
+        linspace = [np.linspace(3.4, 14.6, 8),
+                    np.linspace(1.0, 1.45, 6),
+                    np.linspace(0.0, 1.00, 5),
+                    np.linspace(0.0, 1.0, 5),
+                    np.linspace(50, 130, 5),
+                    np.linspace(0, 0.1, 5)]
+    else:
+        linspace = [np.linspace(3.4, 14.6, 8),
+                    np.linspace(1.0, 1.45, 6),
+                    np.linspace(0.0, 1.00, 5),
+                    np.linspace(12., 14.0, 5),
+                    np.linspace(0., 30.0, 5),
+                    np.linspace(0.5, 2.0, 4),
+                    np.linspace(0.0, 1.0, 5),
+                    np.linspace(50, 130, 5),
+                    np.linspace(0, 0.1, 5)]
 
     # Map the codified parameter names to their sexy latex equivalents
-    param_to_latex = dict(mass=r'$M\,[M_\odot]$',
-                          oblat=r"$R_\mathrm{eq} / R_\mathrm{pole}$",
-                          age=r"$H_\mathrm{frac}$", inc=r'$\cos i$',
-                          dis=r'$d\,[pc]$', ebv=r'$E(B-V)$')
-
-    params = ["mass", "oblat", "age", "inc", "dis", "ebv"]
+    if phot is True:
+        param_to_latex = dict(mass=r'$M\,[M_\odot]$',
+                              oblat=r"$R_\mathrm{eq} / R_\mathrm{pole}$",
+                              age=r"$H_\mathrm{frac}$", inc=r'$\cos i$',
+                              dis=r'$d\,[pc]$', ebv=r'$E(B-V)$')
+        params = ["mass", "oblat", "age", "inc", "dis", "ebv"]
+        fig = plt.figure(figsize=(16, 20.6))
+    else:
+        param_to_latex = dict(mass=r'$M\,[M_\odot]$',
+                              oblat=r"$R_\mathrm{eq} / R_\mathrm{pole}$",
+                              age=r"$H_\mathrm{frac}$",
+                              logn0=r'$\log \, n_0 \, [\mathrm{cm}^{-3}]$',
+                              rdk=r'$R_\mathrm{D}\, [R_\star]$',
+                              inc=r'$\cos i$', nix=r'$m$',
+                              dis=r'$d\,[\mathrm{pc}]$', ebv=r'$E(B-V)$')
+        params = ["mass", "oblat", "age", "logn0", "rdk", "nix",
+                  "inc", "dis", "ebv"]
+        fig = plt.figure(figsize=(16, 24.6))
 
     chain = np.load(npy)
 
     # chain = chain[(acceptance_fractions > 0.20) &
     #               (acceptance_fractions < 0.5)]
 
-    # Create a figure object with same aspect ratio as a sheet of paper...
-    fig = plt.figure(figsize=(16, 20.6))
-
-    # I want the plot of individual walkers to span 2 columns
-    gs = gridspec.GridSpec(6, 3)
+    gs = gridspec.GridSpec(len(params), 3)
     # gs.update(hspace=0.10, wspace=0.025, top=0.85, bottom=0.44)
     gs.update(hspace=0.25)
 
@@ -55,7 +75,7 @@ def plot_convergence(npy, file_name):
                                       max_var),
                      alpha=0.5)
 
-        ax1.set_ylabel(param_to_latex[param], fontsize=36, labelpad=18,
+        ax1.set_ylabel(param_to_latex[param], fontsize=30, labelpad=18,
                        rotation="vertical", color=font_color)
 
         # Don't show ticks on the y-axis
@@ -80,8 +100,8 @@ def plot_convergence(npy, file_name):
         ax2.xaxis.set_visible(False)
         ax2.yaxis.tick_right()
 
-        print(ii)
-        print(param)
+        # print(ii)
+        # print(param)
         ax2.set_yticks(linspace[ii])
         ax1.set_ylim(ax2.get_ylim())
 
