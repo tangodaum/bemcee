@@ -1,6 +1,15 @@
 import numpy as np
 from scipy.interpolate import griddata
 import pyhdust.phc as phc
+from scipy.stats import gaussian_kde
+
+
+# ==============================================================================
+def kde_scipy(x, x_grid, bandwidth=0.2):
+    """Kernel Density Estimation with Scipy"""
+
+    kde = gaussian_kde(x, bw_method=bandwidth / x.std(ddof=1))
+    return kde.evaluate(x_grid)
 
 
 # ==============================================================================
