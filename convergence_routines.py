@@ -9,17 +9,18 @@ tick_color = "black"
 
 
 # ==============================================================================
-def plot_convergence(npy, file_name, phot):
+def plot_convergence(npy, file_name, model):
 
     converged_idx = 0
-    if phot is True:
+
+    if model == 'befavor':
         linspace = [np.linspace(3.4, 14.6, 8),
                     np.linspace(1.0, 1.45, 6),
                     np.linspace(0.0, 1.00, 5),
                     np.linspace(0.0, 1.0, 5),
                     np.linspace(50, 130, 5),
                     np.linspace(0, 0.1, 5)]
-    else:
+    if model == 'aara' or model == 'acol' or model == 'bcmi':
         linspace = [np.linspace(3.4, 14.6, 8),
                     np.linspace(1.0, 1.45, 6),
                     np.linspace(0.0, 1.00, 5),
@@ -29,16 +30,23 @@ def plot_convergence(npy, file_name, phot):
                     np.linspace(0.0, 1.0, 5),
                     np.linspace(50, 130, 5),
                     np.linspace(0, 0.1, 5)]
-
+    if model == 'beatlas':
+        linspace = [np.linspace(3.8, 14.6, 5),
+                    np.linspace(1.0, 1.45, 6),
+                    np.linspace(0.0, 1.00, 5),
+                    np.linspace(3.0, 4.5, 4),
+                    np.linspace(0.0, 1.0, 5),
+                    np.linspace(50, 130, 5),
+                    np.linspace(0, 0.1, 5)]
     # Map the codified parameter names to their sexy latex equivalents
-    if phot is True:
+    if model == 'befavor':
         param_to_latex = dict(mass=r'$M\,[M_\odot]$',
                               oblat=r"$R_\mathrm{eq} / R_\mathrm{pole}$",
                               age=r"$H_\mathrm{frac}$", inc=r'$\cos i$',
                               dis=r'$d\,[pc]$', ebv=r'$E(B-V)$')
         params = ["mass", "oblat", "age", "inc", "dis", "ebv"]
         fig = plt.figure(figsize=(16, 20.6))
-    else:
+    if model == 'aara' or model == 'acol' or model == 'bcmi':
         param_to_latex = dict(mass=r'$M\,[M_\odot]$',
                               oblat=r"$R_\mathrm{eq} / R_\mathrm{pole}$",
                               age=r"$H_\mathrm{frac}$",
@@ -49,6 +57,15 @@ def plot_convergence(npy, file_name, phot):
         params = ["mass", "oblat", "age", "logn0", "rdk", "nix",
                   "inc", "dis", "ebv"]
         fig = plt.figure(figsize=(16, 24.6))
+    if model == 'beatlas':
+        param_to_latex = dict(mass=r'$M\,[M_\odot]$',
+                              oblat=r"$R_\mathrm{eq} / R_\mathrm{pole}$",
+                              sig0=r'$\Sigma_0$',
+                              nix=r'$n$',
+                              inc=r'$\cos i$',
+                              dis=r'$d\,[pc]$', ebv=r'$E(B-V)$')
+        params = ["mass", "oblat", "sig0", "nix", "inc", "dis", "ebv"]
+        fig = plt.figure(figsize=(16, 20.6))
 
     chain = np.load(npy)
 

@@ -17,16 +17,22 @@ extension = '.png'  # Figure extension to be saved
 include_rv = False  # If False: fix Rv = 3.1, else Rv will be inferead
 af_filter = False  # Remove walkers outside the range 0.2 < af < 0.5
 long_process = True  # Run with few walkers or many?
-tag = 'hip+fullsed+aara_xdr+starprior_moade'  # Suffix for the figures
-list_of_stars = '0_test.txt'  # 'Total.txt', 'UV.txt', '0_test.txt', argv[1]
+list_of_stars = 'aara.txt'  # 'bcmi.txt', 'aara.txt', argv[1]
 plot_fits = True  # Include fits in the corner plot
 plot_in_log_scale = True  # yscale in log for fits
 Nsigma_dis = 5.  # Set the range of values for the distance
-phot = False  # If False: read photospheric grid; If True: read "BeAtlas grid"
+model = 'aara'  # 'beatlas', 'befavor', 'aara', 'bcmi' or 'acol' (equals)
+tag = '+' + model + '_xdr' + '+hip+fullsed'  # Suffix for the figures
+
+# ------------------------------------------------------------------------------
+# if True: M, Age, Oblat are set as priors for the choosen input, npy_star
+stellar_prior = False
+npy_star = 'Walkers_500_Nmcmc_1000_af_0.28_a_1.4_rv_false+hip.npy'
+
+# ------------------------------------------------------------------------------
+# Alphacrucis' options
 acrux = False  # If True, it will run in Nproc processors in the cluster
 Nproc = 24  # Number of processors to be used in the cluster
-stellar_prior = True
-npy_star = 'Walkers_500_Nmcmc_1000_af_0.28_a_1.4_rv_false+hip.npy'
 
 # ==============================================================================
 # Acrux
@@ -45,13 +51,13 @@ stars, list_plx, list_sig_plx, list_vsini_obs, list_sig_vsin_obs,\
     read_stars(list_of_stars)
 
 # Reading Models
-ctrlarr, minfo, models, lbdarr, listpar, dims, isig = read_models(phot)
+ctrlarr, minfo, models, lbdarr, listpar, dims, isig = read_models(model)
 
 # ==============================================================================
 # Run code
 input_params = stars, list_plx, list_sig_plx, list_vsini_obs,\
     list_sig_vsin_obs, list_pre_ebmv, lbd_range, listpar,\
-    Nsigma_dis, include_rv, phot, ctrlarr, minfo, models,\
+    Nsigma_dis, include_rv, model, ctrlarr, minfo, models,\
     lbdarr, listpar, dims, isig, a_parameter, af_filter,\
     tag, plot_fits, plot_in_log_scale, long_process,\
     extension, acrux, pool, Nproc, stellar_prior, npy_star

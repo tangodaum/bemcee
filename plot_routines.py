@@ -2,7 +2,7 @@ from PyAstronomy import pyasl
 import numpy as np
 import matplotlib.pylab as plt
 from be_theory import hfrac2tms
-from utils import geneva_interp_fast, griddataBA
+from utils import geneva_interp_fast, griddataBA, griddataBAtlas
 
 
 # ==============================================================================
@@ -139,7 +139,7 @@ def plot_fit(par, lbd, logF, dlogF, minfo, listpar, lbdarr, logF_grid,
 # ==============================================================================
 def plot_fit_last(par, lbd, logF, dlogF, minfo, listpar, lbdarr, logF_grid,
                   isig, dims, Nwalk, Nmcmc, ranges, include_rv,
-                  npy, log_scale, phot):
+                  npy, log_scale, model):
     '''
     Plots best model fit over data
 
@@ -154,10 +154,14 @@ def plot_fit_last(par, lbd, logF, dlogF, minfo, listpar, lbdarr, logF_grid,
         lim = 3
         lim2 = 2
     else:
-        if phot is True:
+        if model == 'befavor':
             Mstar, oblat, Hfrac, cosi, dist, ebv = par
-        else:
+        if model == 'aara' or model == 'acol' or model == 'bcmi':
             Mstar, oblat, Hfrac, Sig0, Rd, n, cosi, dist, ebv = par
+        if model == 'beatlas':
+            Mstar, oblat, Sig0, n, cosi, dist, ebv = par
+            Hfrac = 0.30
+
         lim = 2
         lim2 = 1
         rv = 3.1
@@ -174,14 +178,25 @@ def plot_fit_last(par, lbd, logF, dlogF, minfo, listpar, lbdarr, logF_grid,
     # ***
     chain = np.load(npy)
     par_list = chain[:, -1, :]
-    # interpolate models
-    # print(minfo, logF_grid, par[:-lim], listpar, dims)
-    logF_mod = griddataBA(minfo, logF_grid, par[:-lim], listpar, dims)
+
+    # interpolate model
+    if model == 'beatlas':
+        logF_mod = griddataBAtlas(minfo, logF_grid, par[:-lim],
+                                  listpar, dims, isig)
+    else:
+        logF_mod = griddataBA(minfo, logF_grid, par[:-lim],
+                              listpar, dims)
+
     logF_list = np.zeros([len(par_list), len(logF_mod)])
     chi2 = np.zeros(len(logF_list))
     for i in range(len(par_list)):
-        logF_list[i] = griddataBA(minfo, logF_grid, par_list[i, :-lim],
-                                  listpar, dims)
+        if model == 'beatlas':
+            logF_list[i] = griddataBAtlas(minfo, logF_grid, par_list[i, :-lim],
+                                          listpar, dims, isig)
+        else:
+            logF_list[i] = griddataBA(minfo, logF_grid, par_list[i, :-lim],
+                                      listpar, dims)
+
     # convert to physical units
     logF_mod += np.log10(norma)
     logF_list += np.log10(norma)
@@ -236,7 +251,8 @@ def plot_fit_last(par, lbd, logF, dlogF, minfo, listpar, lbdarr, logF_grid,
                    fontsize=20)
         plt.tick_params(labelbottom='off')
     plt.xlim(min(lbd), max(lbd))
-    if phot is False:
+    if model == 'aara' or model == 'beatlas' or\
+       model == 'acol' or model == 'bcmi':
         plt.xscale('log')
     plt.tick_params(direction='in', length=6, width=2, colors='gray',
                     which='both')
@@ -248,7 +264,7 @@ def plot_fit_last(par, lbd, logF, dlogF, minfo, listpar, lbdarr, logF_grid,
 # ==============================================================================
 def plot_residuals(par, lbd, logF, dlogF, minfo, listpar, lbdarr, logF_grid,
                    isig, dims, Nwalk, Nmcmc, ranges, include_rv,
-                   npy, log_scale, phot):
+                   npy, log_scale, model):
     '''
     Plots best model fit over data
 
@@ -263,10 +279,14 @@ def plot_residuals(par, lbd, logF, dlogF, minfo, listpar, lbdarr, logF_grid,
         lim = 3
         lim2 = 2
     else:
-        if phot is True:
+        if model == 'befavor':
             Mstar, oblat, Hfrac, cosi, dist, ebv = par
-        else:
+        if model == 'aara' or model == 'acol' or model == 'bcmi':
             Mstar, oblat, Hfrac, Sig0, Rd, n, cosi, dist, ebv = par
+        if model == 'beatlas':
+            Mstar, oblat, Sig0, n, cosi, dist, ebv = par
+            Hfrac = 0.3
+
         lim = 2
         lim2 = 1
         rv = 3.1
@@ -283,13 +303,25 @@ def plot_residuals(par, lbd, logF, dlogF, minfo, listpar, lbdarr, logF_grid,
     # ***
     chain = np.load(npy)
     par_list = chain[:, -1, :]
+
     # interpolate models
-    logF_mod = griddataBA(minfo, logF_grid, par[:-lim], listpar, dims)
+    if model == 'beatlas':
+        logF_mod = griddataBAtlas(minfo, logF_grid, par[:-lim],
+                                  listpar, dims, isig)
+    else:
+        logF_mod = griddataBA(minfo, logF_grid, par[:-lim],
+                              listpar, dims)
+
     logF_list = np.zeros([len(par_list), len(logF_mod)])
     chi2 = np.zeros(len(logF_list))
     for i in range(len(par_list)):
-        logF_list[i] = griddataBA(minfo, logF_grid, par_list[i, :-lim],
-                                  listpar, dims)
+        if model == 'beatlas':
+            logF_list[i] = griddataBAtlas(minfo, logF_grid, par_list[i, :-lim],
+                                          listpar, dims, isig)
+        else:
+            logF_list[i] = griddataBA(minfo, logF_grid, par_list[i, :-lim],
+                                      listpar, dims)
+
     # convert to physical units
     logF_mod += np.log10(norma)
     logF_list += np.log10(norma)
@@ -328,7 +360,8 @@ def plot_residuals(par, lbd, logF, dlogF, minfo, listpar, lbdarr, logF_grid,
                linestyles='--', color='black')
 
     plt.xlim(min(lbd), max(lbd))
-    if phot is False:
+    if model == 'aara' or model == 'beatlas' or\
+       model == 'acol' or model == 'bcmi':
         plt.xscale('log')
     plt.tick_params(direction='in', length=6, width=2, colors='gray',
                     which='both')

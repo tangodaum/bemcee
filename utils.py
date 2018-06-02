@@ -270,3 +270,40 @@ def griddataBA(minfo, models, params, listpar, dims):
 
     return out_interp
 
+
+# ==============================================================================
+def griddataBAtlas(minfo, models, params, listpar, dims, isig):
+    idx = range(len(minfo))
+    lim_vals = len(params)*[ [], ]
+    for i in [i for i in range(len(params)) if i != isig]:
+        lim_vals[i] = [
+            phc.find_nearest(listpar[i], params[i], bigger=False), 
+            phc.find_nearest(listpar[i], params[i], bigger=True)]
+        tmp = np.where((minfo[:, i] == lim_vals[i][0]) | 
+                (minfo[:, i] == lim_vals[i][1]))
+        idx = np.intersect1d(idx, tmp)
+        #
+    out_interp = griddata(minfo[idx], models[idx], params)[0]
+    #
+    if (np.sum(out_interp) == 0 or np.sum(np.isnan(out_interp)) > 0):
+        print("# Houve um problema na grade. Tentando arrumadar...")
+        idx = np.arange(len(minfo))
+        for i in [i for i in range(len(params)) if i != dims["sig0"]]:
+            imin = lim_vals[i][0]
+            if lim_vals[i][0] != np.min(listpar[i]):
+                imin = phc.find_nearest(listpar[i], lim_vals[i][0], 
+                    bigger=False)
+            imax = lim_vals[i][1]
+            if lim_vals[i][1] != np.max(listpar[i]):
+                imax = phc.find_nearest(listpar[i], lim_vals[i][1], 
+                    bigger=True)
+            lim_vals[i] = [imin, imax]
+            tmp = np.where((minfo[:, i] >= lim_vals[i][0]) & 
+                (minfo[:, i] <= lim_vals[i][1]))
+            idx = np.intersect1d(idx, phc.flatten(tmp))
+        out_interp = griddata(minfo[idx], models[idx], params)[0]
+    #
+    if (np.sum(out_interp) == 0 or np.sum(np.isnan(out_interp)) > 0):
+        print("# Houve um problema na grade e eu nao conseguir arrumar...")
+    #
+    return out_interp

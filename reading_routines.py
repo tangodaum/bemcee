@@ -87,16 +87,29 @@ def read_befavor_xdr_complete():
     listpar[4].sort()
     minfo[:, 4] = np.log10(minfo[:, 4])
 
-    if False:
+    if True:
         mask = []
-        tmp, idx = find_nearest(lbdarr, 2e2)
+        tmp, idx = find_nearest(lbdarr, 1000)
         for i in range(len(models)):
-            if models[i][idx] > 1e-10:
+            if models[i][idx] > 2.21834e-10:
                 mask.append(i)
-
+                # print(i)
+                # plt.plot(lbdarr, models[i], alpha=0.1)
+        tmp, idx = find_nearest(lbdarr, 80)
         for i in range(len(models)):
-            if min(models[i]) < 1e-27:
+            if models[i][idx] > 2e-8:
                 mask.append(i)
+                # print(i)
+                # # plt.plot(lbdarr, models[i], alpha=0.1)
+        tmp, idx = find_nearest(lbdarr, 850)
+        for i in range(len(models)):
+            if models[i][idx] > 7e-11:
+                mask.append(i)
+        #         print(i)
+        #         plt.plot(lbdarr, models[i], alpha=0.1)
+        # plt.yscale('log')
+        # plt.xscale('log')
+        # plt.show()
 
         new_models = np.delete(models, mask, axis=0)
         new_minfo = np.delete(minfo, mask, axis=0)
@@ -167,9 +180,102 @@ def read_befavor_xdr():
 
 
 # ==============================================================================
+def read_beatlas_xdr():
+
+    dims = ['M', 'ob', 'sig0', 'mr', 'cosi']
+    dims = dict(zip(dims, range(len(dims))))
+    isig = dims["sig0"]
+    ctrlarr = [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN]
+
+    tmp = 0
+    cont = 0
+    while tmp < len(ctrlarr):
+        if math.isnan(ctrlarr[tmp]) is True:
+            cont = cont + 1
+            tmp = tmp + 1
+        else:
+            tmp = tmp + 1
+
+    folder_models = 'models/'
+    xdrPL = folder_models + 'disk_flx.xdr'  # 'PL.xdr'
+
+    listpar, lbdarr, minfo, models = bat.readBAsed(xdrPL, quiet=False)
+
+    # F(lbd)] = 10^-4 erg/s/cm2/Ang
+
+    for i in range(np.shape(minfo)[0]):
+        for j in range(np.shape(minfo)[1]):
+            if minfo[i][j] < 0:
+                minfo[i][j] = 0.
+
+    for i in range(np.shape(models)[0]):
+        for j in range(np.shape(models)[1]):
+            if models[i][j] < 0. or models[i][j] == 0.:
+                models[i][j] = (models[i][j + 1] + models[i][j - 1]) / 2.
+
+    listpar[-1][0] = 0.
+
+    return ctrlarr, minfo, models, lbdarr, listpar, dims, isig
+
+
+# ==============================================================================
+def read_acol_xdr():
+
+    # print(params_tmp)
+    dims = ['M', 'ob', 'Hfrac', 'sig0', 'Rd', 'mr', 'cosi']
+    dims = dict(zip(dims, range(len(dims))))
+    isig = dims["sig0"]
+
+    ctrlarr = [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN, np.NaN, np.NaN]
+
+    tmp = 0
+    cont = 0
+    while tmp < len(ctrlarr):
+        if math.isnan(ctrlarr[tmp]) is True:
+            cont = cont + 1
+            tmp = tmp + 1
+        else:
+            tmp = tmp + 1
+
+    # Read the grid models, with the interval of parameters.
+    folder_models = 'models/'
+    xdrPL = folder_models + 'acol.xdr'
+
+    listpar, lbdarr, minfo, models = bat.readBAsed(xdrPL, quiet=False)
+
+    # Filter (removing bad models)
+    for i in range(np.shape(minfo)[0]):
+        for j in range(np.shape(minfo)[1]):
+            if minfo[i][j] < 0:
+                minfo[i][j] = 0.
+
+    for i in range(np.shape(listpar)[0]):
+        for j in range(len(listpar[i])):
+            if listpar[i][j] < 0:
+                listpar[i][j] = 0.
+
+    mask = np.ones(len(minfo[0]), dtype=bool)
+    mask[[2, 6]] = False
+    result = []
+    for i in range(len(minfo)):
+        result.append(minfo[i][mask])
+    minfo = np.copy(result)
+
+    for i in range(np.shape(minfo)[0]):
+        minfo[i][3] = np.log10(minfo[i][3])
+
+    listpar[4] = np.log10(listpar[4])
+    listpar[4].sort()
+    listpar = list([listpar[0], listpar[1], listpar[3], listpar[4], listpar[5],
+                    listpar[7], listpar[8]])
+
+    return ctrlarr, minfo, models, lbdarr, listpar, dims, isig
+
+
+# ==============================================================================
 def read_star_info(stars, list_plx, list_sig_plx, list_vsini_obs,
                    list_sig_vsin_obs, list_pre_ebmv, lbd_range,
-                   listpar, Nsigma_dis, include_rv, phot):
+                   listpar, Nsigma_dis, include_rv, model):
 
         print(75 * '=')
 
@@ -214,14 +320,14 @@ def read_star_info(stars, list_plx, list_sig_plx, list_vsini_obs,
 
         addlistpar = list(filter(partial(is_not, None), addlistpar))
 
-        if phot is True:
+        if model == 'befavor':
             ranges = np.array([[listpar[0][0], listpar[0][-1]],
                                [listpar[1][0], listpar[1][-1]],
                                [listpar[2][0], listpar[2][-1]],
                                [listpar[3][0], listpar[3][-1]],
                                [dist_min, dist_max],
                                [ebmv[0], ebmv[-1]]])
-        else:
+        if model == 'aara':
             ranges = np.array([[listpar[0][0], listpar[0][-1]],
                                [listpar[1][0], listpar[1][-1]],
                                [listpar[2][0], listpar[2][-1]],
@@ -231,14 +337,35 @@ def read_star_info(stars, list_plx, list_sig_plx, list_vsini_obs,
                                [listpar[6][0], listpar[6][-1]],
                                [dist_min, dist_max],
                                [ebmv[0], ebmv[-1]]])
-        if include_rv is True:
+        if model == 'beatlas':
             ranges = np.array([[listpar[0][0], listpar[0][-1]],
                                [listpar[1][0], listpar[1][-1]],
                                [listpar[2][0], listpar[2][-1]],
                                [listpar[3][0], listpar[3][-1]],
+                               [listpar[4][0], listpar[4][-1]],
                                [dist_min, dist_max],
-                               [ebmv[0], ebmv[-1]],
-                               [rv[0], rv[-1]]])
+                               [ebmv[0], ebmv[-1]]])
+
+        if model == 'acol' or model == 'bcmi':
+            ranges = np.array([[listpar[0][0], listpar[0][-1]],
+                               [listpar[1][0], listpar[1][-1]],
+                               [listpar[2][0], listpar[2][-1]],
+                               [listpar[3][0], listpar[3][-1]],
+                               [listpar[4][0], listpar[4][-1]],
+                               [listpar[5][0], listpar[5][-1]],
+                               [listpar[6][0], listpar[6][-1]],
+                               [dist_min, dist_max],
+                               [ebmv[0], ebmv[-1]]])
+
+        # print(ranges)
+        # if include_rv is True:
+        #     ranges = np.array([[listpar[0][0], listpar[0][-1]],
+        #                        [listpar[1][0], listpar[1][-1]],
+        #                        [listpar[2][0], listpar[2][-1]],
+        #                        [listpar[3][0], listpar[3][-1]],
+        #                        [dist_min, dist_max],
+        #                        [ebmv[0], ebmv[-1]],
+        #                        [rv[0], rv[-1]]])
         Ndim = len(ranges)
 
         return ranges, dist_pc, sig_dist_pc, vsin_obs,\
@@ -247,15 +374,15 @@ def read_star_info(stars, list_plx, list_sig_plx, list_vsini_obs,
 
 # ==============================================================================
 def read_iue(models, lbdarr, wave0, flux0, sigma0, folder_data,
-             folder_fig, star, cut_iue_regions, phot):
+             folder_fig, star, cut_iue_regions, model):
 
-    table = folder_data + str(star) + '/' + 'list.txt'
+    table = folder_data + str(star) + '/' + 'list_iue.txt'
 
     # os.chdir(folder_data + str(star) + '/')
     if os.path.isfile(table) is False or os.path.isfile(table) is True:
         os.system('ls ' + folder_data + str(star) +
                   '/*.FITS | xargs -n1 basename >' +
-                  folder_data + str(star) + '/' + 'list.txt')
+                  folder_data + str(star) + '/' + 'list_iue.txt')
         iue_list = np.genfromtxt(table, comments='#', dtype='str')
         file_name = np.copy(iue_list)
 
@@ -301,7 +428,6 @@ def read_iue(models, lbdarr, wave0, flux0, sigma0, folder_data,
         waves, fluxes, errors = waves[indx3], fluxes[indx3], errors[indx3]
 
     else:
-
         wave_lim_min_iue = min(waves)
         wave_lim_max_iue = 0.300
         indx = np.where(((waves >= wave_lim_min_iue) &
@@ -320,7 +446,7 @@ def read_iue(models, lbdarr, wave0, flux0, sigma0, folder_data,
     flux = ybin[ordem]
     sigma = dybin[ordem]
 
-    if phot is False:
+    if model != 'befavor':
         wave = np.hstack([wave0, wave])
         flux = np.hstack([flux0, flux])
         sigma = np.hstack([sigma0, sigma])
@@ -333,6 +459,13 @@ def read_iue(models, lbdarr, wave0, flux0, sigma0, folder_data,
 # ------------------------------------------------------------------------------
     # select lbdarr to coincide with lbd
     models_new = np.zeros([len(models), len(wave)])
+    if model == 'beatlas' or model == 'aara':
+        idx = np.where((wave >= np.min(lbdarr)) & (wave <= np.max(lbdarr)))
+        wave = wave[idx]
+        flux = flux[idx]
+        sigma = sigma[idx]
+        models_new = np.zeros([len(models), len(wave)])
+
     for i in range(len(models)):
         models_new[i, :] = 10.**griddata(np.log(lbdarr),
                                          np.log10(models[i]),
@@ -389,13 +522,18 @@ def read_votable(folder_data, star):
 
 
 # ==============================================================================
-def read_models(phot):
-    if phot is True:
+def read_models(model):
+    if model == 'befavor':
         ctrlarr, minfo, models, lbdarr, listpar,\
             dims, isig = read_befavor_xdr()
-    else:
+    if model == 'aara':
         ctrlarr, minfo, models, lbdarr, listpar,\
             dims, isig = read_befavor_xdr_complete()
+    if model == 'beatlas':
+        ctrlarr, minfo, models, lbdarr, listpar,\
+            dims, isig = read_beatlas_xdr()
+    if model == 'acol' or model == 'bcmi':
+        ctrlarr, minfo, models, lbdarr, listpar,\
+            dims, isig = read_acol_xdr()
 
     return ctrlarr, minfo, models, lbdarr, listpar, dims, isig
-
