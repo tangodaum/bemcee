@@ -36,6 +36,14 @@ def oblat2w(oblat):
 
 
 # ==============================================================================
+def obl2W(oblat):
+
+    W = np.sqrt(2 * (oblat - 1))
+
+    return W
+
+
+# ==============================================================================
 def t_tms_from_Xc(M, savefig=None, plot_fig=None, ttms_true=None, Xc=None):
     '''
     Calculates the t(tms) for a given Xc and mass

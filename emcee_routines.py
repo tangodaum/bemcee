@@ -4,7 +4,7 @@ import corner_bruno
 from PyAstronomy import pyasl
 import matplotlib.pyplot as plt
 from constants import G, Msun, Rsun
-from be_theory import oblat2w, t_tms_from_Xc
+from be_theory import oblat2w, t_tms_from_Xc, obl2W
 import emcee
 import matplotlib as mpl
 from corner import corner
@@ -272,9 +272,9 @@ def emcee_inference(star, Ndim, ranges, lbdarr, wave, logF, dlogF, minfo,
                     grid_mas, grid_obl, grid_age, grid_dis, grid_ebv):
 
         if long_process is True:
-            Nwalk = 200  # 200  # 500
+            Nwalk = 500  # 200  # 500
             nint_burnin = 100  # 50
-            nint_mcmc = 500  # 500  # 1000
+            nint_mcmc = 1000  # 500  # 1000
         else:
             Nwalk = 20
             nint_burnin = 5
@@ -464,7 +464,7 @@ def emcee_inference(star, Ndim, ranges, lbdarr, wave, logF, dlogF, minfo,
                                              isRpole=False)
 
             # Converting oblat to W
-            samples[i][1] = oblat2w(samples[i][1])
+            samples[i][1] = obl2W(samples[i][1])
 
             if model == 'befavor':
                 # Converting angles to degrees
@@ -502,13 +502,13 @@ def emcee_inference(star, Ndim, ranges, lbdarr, wave, logF, dlogF, minfo,
                 labels = [r'$M\,[M_\odot]$', r'$W$', r'$\Sigma_0$', r'$n$',
                           r'$i[\mathrm{^o}]$', r'$d\,[pc]$', r'E(B-V)']
         if model == 'befavor':
-            ranges[1] = oblat2w(ranges[1])
+            ranges[1] = obl2W(ranges[1])
             ranges[2][0] = ttms_ip[find_nearest(Xc_ip, ranges[2][1])[1]]
             ranges[2][1] = ttms_ip[find_nearest(Xc_ip, ranges[2][0])[1]]
             ranges[3] = (np.arccos(ranges[3])) * (180. / np.pi)
             ranges[3] = np.array([ranges[3][1], ranges[3][0]])
         if model == 'aara':
-            ranges[1] = oblat2w(ranges[1])
+            ranges[1] = obl2W(ranges[1])
             ranges[2][0] = ttms_ip[find_nearest(Xc_ip, ranges[2][1])[1]]
             ranges[2][1] = ttms_ip[find_nearest(Xc_ip, ranges[2][0])[1]]
             ranges[3] = np.array([ranges[3][1], ranges[3][0]])
@@ -516,14 +516,14 @@ def emcee_inference(star, Ndim, ranges, lbdarr, wave, logF, dlogF, minfo,
             ranges[6] = (np.arccos(ranges[6])) * (180. / np.pi)
             ranges[6] = np.array([ranges[6][1], ranges[6][0]])
         if model == 'acol' or model == 'bcmi':
-            ranges[1] = oblat2w(ranges[1])
+            ranges[1] = obl2W(ranges[1])
             ranges[2][0] = ttms_ip[find_nearest(Xc_ip, ranges[2][1])[1]]
             ranges[2][1] = ttms_ip[find_nearest(Xc_ip, ranges[2][0])[1]]
             ranges[3] = np.array([ranges[3][1], ranges[3][0]])
             ranges[6] = (np.arccos(ranges[6])) * (180. / np.pi)
             ranges[6] = np.array([ranges[6][1], ranges[6][0]])
         if model == 'beatlas':
-            ranges[1] = oblat2w(ranges[1])
+            ranges[1] = obl2W(ranges[1])
             ranges[3] = np.array([ranges[3][-1], ranges[3][0]])
             ranges[4] = (np.arccos(ranges[4])) * (180. / np.pi)
             ranges[4] = np.array([ranges[4][1], ranges[4][0]])
