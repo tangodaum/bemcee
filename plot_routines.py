@@ -355,7 +355,7 @@ def plot_residuals(par, lbd, logF, dlogF, minfo, listpar, lbdarr, logF_grid,
     # plt.ylabel('$(\mathrm{F}-F_\mathrm{model})/\sigma$', fontsize=20)
     plt.ylabel('$(F-F_\mathrm{m})/\sigma$', fontsize=20)
     plt.xlabel('$\lambda\,\mathrm{[\mu m]}$', fontsize=20)
-    plt.ylim(-100, 100)
+    # plt.ylim(-100, 100)
     plt.hlines(y=0, xmin=min(lbd), xmax=max(lbd),
                linestyles='--', color='black')
 
